@@ -1,0 +1,101 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-void:     #080c14;
+  --bg-deep:     #0d1421;
+  --bg-card:     #111827;
+  --bg-hover:    #1a2436;
+  --bg-input:    #0f1923;
+  --border:      #1e2d42;
+  --border-bright: #2a3f5e;
+
+  --text-primary:   #e8edf5;
+  --text-secondary: #8394a8;
+  --text-muted:     #4a5a6e;
+
+  --amber:      #f59e0b;
+  --amber-dim:  #78490a;
+  --amber-glow: rgba(245,158,11,0.12);
+
+  --green:      #10b981;
+  --green-dim:  #064e3b;
+  --red:        #ef4444;
+  --red-dim:    #450a0a;
+  --orange:     #f97316;
+  --orange-dim: #431407;
+  --blue:       #3b82f6;
+  --blue-dim:   #1e3a5f;
+
+  --risk-low:      #10b981;
+  --risk-medium:   #f59e0b;
+  --risk-high:     #f97316;
+  --risk-critical: #ef4444;
+
+  --font-display: 'Syne', sans-serif;
+  --font-body:    'DM Sans', sans-serif;
+  --font-mono:    'Space Mono', monospace;
+
+  --radius-sm: 4px;
+  --radius:    8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --shadow-card: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-glow-amber: 0 0 20px rgba(245,158,11,0.15);
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+@keyframes scan {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(400%); }
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.fade-in { animation: fadeIn 0.3s ease forwards; }
+
+/* Markdown in chat */
+.chat-content h2 { font-family: var(--font-display); font-size: 15px; color: var(--amber); margin: 16px 0 8px; }
+.chat-content h3 { font-family: var(--font-display); font-size: 13px; color: var(--text-primary); margin: 12px 0 6px; }
+.chat-content p  { margin-bottom: 10px; color: var(--text-secondary); line-height: 1.7; }
+.chat-content ul, .chat-content ol { padding-left: 20px; margin-bottom: 10px; }
+.chat-content li { color: var(--text-secondary); margin-bottom: 4px; }
+.chat-content strong { color: var(--text-primary); font-weight: 600; }
+.chat-content code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--amber);
+}
+.chat-content hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
