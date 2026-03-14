@@ -21,7 +21,11 @@ async function request(path, opts = {}) {
     window.location.href = '/login'
     return
   }
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`
+    try { const body = await res.json(); if (body?.detail) detail = body.detail } catch {}
+    throw new Error(detail)
+  }
   return res.json()
 }
 

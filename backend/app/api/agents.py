@@ -146,11 +146,19 @@ async def trigger_pipeline(
 @router.post("/teams/{team_id}/poll")
 async def poll_request_board(
     team_id: str,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Manually trigger a poll of the configured Jira request board."""
+    # Check config exists and has a board ID configured
+    from sqlalchemy import select as sa_select
+    cfg_result = await db.execute(sa_select(AgentConfig).where(AgentConfig.team_id == team_id))
+    config = cfg_result.scalar_one_or_none()
+    if not config:
+        raise HTTPException(status_code=400, detail="No agent config found. Configure a request board in SETTINGS first.")
+    if not config.request_board_id:
+        raise HTTPException(status_code=400, detail="No request board ID configured. Set one in SETTINGS → Jira Request Board.")
+
     triggered = await agent_service.poll_request_board(team_id)
     return {"triggered_pipelines": len(triggered), "pipeline_ids": triggered}
 

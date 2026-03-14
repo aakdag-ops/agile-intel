@@ -273,12 +273,12 @@ async def poll_request_board(team_id: str) -> list[str]:
                 continue
             fields = issue.get("fields", {})
 
-            # Skip if already processed
+            # Skip if already processed (use limit(1) — duplicate manual triggers are allowed)
             existing = await db.execute(
                 select(AgentPipeline).where(
                     AgentPipeline.team_id == team_id,
                     AgentPipeline.trigger_issue_key == issue_key,
-                )
+                ).limit(1)
             )
             if existing.scalar_one_or_none():
                 continue

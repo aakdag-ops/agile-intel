@@ -694,9 +694,17 @@ export default function Agents() {
       await load()
       if (res.triggered_pipelines > 0) {
         setSelectedId(null) // will auto-select newest
+      } else {
+        alert(`Board polled — no new issues found.\n\nMake sure:\n• Request Board ID is set in SETTINGS\n• Jira credentials are configured\n• There are unprocessed issues on the board`)
       }
     } catch (err) {
-      alert('Poll failed: ' + err.message)
+      // Try to extract server error detail
+      let msg = err.message
+      try {
+        const body = await err.response?.json?.()
+        if (body?.detail) msg = body.detail
+      } catch {}
+      alert('Poll failed: ' + msg)
     } finally {
       setPolling(false)
     }
