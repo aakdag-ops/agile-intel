@@ -7,14 +7,13 @@ criteria and story point estimates.
 """
 from __future__ import annotations
 
-import json
-import re
 from typing import Any
 
 import anthropic
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.pipelines.agent_utils import extract_json
 
 
 async def run(
@@ -107,15 +106,11 @@ Return ONLY valid JSON. No markdown fences. No extra text."""
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
     message = await client.messages.create(
         model="claude-sonnet-4-20250514",
-        max_tokens=3000,
+        max_tokens=8000,
         messages=[{"role": "user", "content": prompt}],
     )
 
-    raw = message.content[0].text.strip()
-    raw = re.sub(r"^```(?:json)?\n?", "", raw)
-    raw = re.sub(r"\n?```$", "", raw)
-
-    result = json.loads(raw)
+    result = extract_json(message.content[0].text)
 
     # Recalculate total if needed
     if "epics" in result:

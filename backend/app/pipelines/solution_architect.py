@@ -162,13 +162,8 @@ Return ONLY valid JSON. No markdown fences. No extra text."""
         messages=[{"role": "user", "content": prompt}],
     )
 
-    import json
-    raw = message.content[0].text.strip()
-    # Strip potential markdown fences
-    raw = re.sub(r"^```(?:json)?\n?", "", raw)
-    raw = re.sub(r"\n?```$", "", raw)
-
-    result = json.loads(raw)
+    from app.pipelines.agent_utils import extract_json
+    result = extract_json(message.content[0].text)
     result["github_context_used"] = github_context_used
     logger.info("solution_architect.done", issue_key=issue_key, complexity=result.get("complexity"))
     return result

@@ -6,14 +6,13 @@ and produces a dispatch plan with follow-up monitoring recommendations.
 """
 from __future__ import annotations
 
-import json
-import re
 from typing import Any
 
 import anthropic
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.pipelines.agent_utils import extract_json
 from app.pipelines.jira_client import JiraClient
 
 
@@ -156,10 +155,7 @@ Return ONLY valid JSON. No markdown fences. No extra text."""
         messages=[{"role": "user", "content": prompt}],
     )
 
-    raw = message.content[0].text.strip()
-    raw = re.sub(r"^```(?:json)?\n?", "", raw)
-    raw = re.sub(r"\n?```$", "", raw)
-    result = json.loads(raw)
+    result = extract_json(message.content[0].text)
 
     created_issues = []
     if auto_create and jira_client and target_project_key:

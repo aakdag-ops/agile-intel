@@ -6,14 +6,13 @@ cross-dependencies, ordering constraints, and blockers.
 """
 from __future__ import annotations
 
-import json
-import re
 from typing import Any
 
 import anthropic
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.pipelines.agent_utils import extract_json
 
 
 def _summarise_existing(existing_issues: list[dict]) -> str:
@@ -121,11 +120,7 @@ Return ONLY valid JSON. No markdown fences. No extra text."""
         messages=[{"role": "user", "content": prompt}],
     )
 
-    raw = message.content[0].text.strip()
-    raw = re.sub(r"^```(?:json)?\n?", "", raw)
-    raw = re.sub(r"\n?```$", "", raw)
-
-    result = json.loads(raw)
+    result = extract_json(message.content[0].text)
     logger.info(
         "dependency_analyzer.done",
         issue_key=issue_key,
