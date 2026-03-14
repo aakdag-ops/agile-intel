@@ -127,9 +127,20 @@ async def trigger_pipeline(
 
     background_tasks.add_task(agent_service.run_pipeline, pipeline.id)
 
-    # Return with empty steps (they'll be created by the background task)
-    pipeline.steps = []
-    return pipeline
+    # Return Pydantic model directly to avoid lazy-loading the steps relationship
+    return AgentPipelineResponse(
+        id=pipeline.id,
+        team_id=pipeline.team_id,
+        trigger_issue_key=pipeline.trigger_issue_key,
+        trigger_issue_summary=pipeline.trigger_issue_summary,
+        trigger_issue_data=pipeline.trigger_issue_data,
+        status=pipeline.status,
+        started_at=pipeline.started_at,
+        completed_at=pipeline.completed_at,
+        error=pipeline.error,
+        created_at=pipeline.created_at,
+        steps=[],
+    )
 
 
 @router.post("/teams/{team_id}/poll")
