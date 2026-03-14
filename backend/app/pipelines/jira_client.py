@@ -42,6 +42,18 @@ class JiraClient:
             resp.raise_for_status()
             return resp.json()
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+    async def _post(self, path: str, body: dict) -> Any:
+        url = f"{self.base_url}{path}"
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                url,
+                headers={**self._get_auth_headers(), "Accept": "application/json", "Content-Type": "application/json"},
+                json=body,
+            )
+            resp.raise_for_status()
+            return resp.json()
+
     # ── Boards & Sprints ─────────────────────────────────────────────────────
 
     async def get_all_boards(self, project_key: str) -> list[dict]:
@@ -105,22 +117,22 @@ class JiraClient:
     ) -> list[dict]:
         """Get all non-done issues in a project via JQL."""
         issues = []
-        start = 0
+        next_page_token: str | None = None
         jql = f"project = {project_key} AND statusCategory != Done ORDER BY updated DESC"
-        fields = (
-            "summary,status,priority,assignee,customfield_10016,issuetype,"
-            "labels,created,updated,issuelinks,description,customfield_10014,parent,sprint"
-        )
+        fields = [
+            "summary", "status", "priority", "assignee", "customfield_10016",
+            "issuetype", "labels", "created", "updated", "issuelinks",
+            "description", "customfield_10014", "parent", "customfield_10020",
+        ]
         while len(issues) < max_results:
-            data = await self._get(
-                "/rest/api/3/search",
-                params={"jql": jql, "startAt": start, "maxResults": 100, "fields": fields}
-            )
+            body: dict = {"jql": jql, "maxResults": 100, "fields": fields}
+            if next_page_token:
+                body["nextPageToken"] = next_page_token
+            data = await self._post("/rest/api/3/search/jql", body)
             batch = data.get("issues", [])
             issues.extend(batch)
-            total = data.get("total", 0)
-            start += len(batch)
-            if start >= total or not batch:
+            next_page_token = data.get("nextPageToken")
+            if data.get("isLast", True) or not batch or not next_page_token:
                 break
         return issues
 
@@ -142,6 +154,29 @@ class JiraClient:
                         "created": entry.get("created"),
                     })
         return status_changes
+
+    async def get_issues_for_healthcheck(self, project_key: str, months_back: int = 6) -> list[dict]:
+        """Fetch ALL issues created in last N months — Done + active + backlog."""
+        issues: list[dict] = []
+        next_page_token: str | None = None
+        jql = f"project = {project_key} AND created >= -{months_back * 30}d ORDER BY created DESC"
+        fields = [
+            "summary", "status", "issuetype", "priority", "assignee",
+            "customfield_10016", "customfield_10028", "story_points",
+            "labels", "created", "updated", "resolutiondate", "issuelinks",
+            "description", "customfield_10014", "parent", "customfield_10020",
+        ]
+        while True:
+            body: dict = {"jql": jql, "maxResults": 100, "fields": fields}
+            if next_page_token:
+                body["nextPageToken"] = next_page_token
+            data = await self._post("/rest/api/3/search/jql", body)
+            batch = data.get("issues", [])
+            issues.extend(batch)
+            next_page_token = data.get("nextPageToken")
+            if data.get("isLast", True) or not batch or not next_page_token:
+                break
+        return issues
 
     async def get_project_info(self, project_key: str) -> dict:
         """Get project metadata."""

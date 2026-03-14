@@ -16,7 +16,7 @@ from app.core.logging import logger
 from app.db.session import AsyncSessionLocal
 from app.models.models import (
     Insight, InsightSource, InsightType, JiraIssue,
-    RiskSnapshot, Severity, Sprint, Team
+    RiskSnapshot, Severity, Sprint, Team, Transcript
 )
 
 
@@ -251,23 +251,169 @@ async def score_sprint_completion(
     return score, detail
 
 
+async def score_meeting_alignment(
+    db: AsyncSession, team: Team
+) -> tuple[int, dict]:
+    """
+    Score based on unresolved signals from recent meeting transcripts.
+    - Unresolved blockers from transcripts: +15 each
+    - Action items with no Jira ref (likely untracked): +10 each
+    - Scope changes: +20 each
+    Cap at 100.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+
+    result = await db.execute(
+        select(Insight).where(
+            Insight.team_id == team.id,
+            Insight.source == "transcript",
+            Insight.is_resolved == False,
+            Insight.captured_at >= cutoff,
+        )
+    )
+    insights = result.scalars().all()
+
+    if not insights:
+        return 0, {"reason": "no_transcript_insights"}
+
+    score = 0
+    detail = {"blockers": 0, "untracked_action_items": 0, "scope_changes": 0}
+
+    for insight in insights:
+        extra = insight.extra_data or {}
+        transcript_type = extra.get("transcript_type", "")
+        jira_refs = extra.get("jira_refs", [])
+
+        if transcript_type == "blocker":
+            score += 15
+            detail["blockers"] += 1
+        elif transcript_type == "action_item" and not jira_refs:
+            score += 10
+            detail["untracked_action_items"] += 1
+        elif transcript_type == "scope_change":
+            score += 20
+            detail["scope_changes"] += 1
+
+    return _clamp(score), detail
+
+
+async def score_slack_signals(
+    db: AsyncSession, team: Team
+) -> tuple[int, dict]:
+    """
+    Score based on recent Slack-sourced insights (blockers, risks, customer escalations).
+    Each insight contributes points weighted by type and severity.
+    Cap at 100.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+
+    result = await db.execute(
+        select(Insight).where(
+            Insight.team_id == team.id,
+            Insight.source == InsightSource.slack,
+            Insight.insight_type.in_([
+                InsightType.blocker, InsightType.risk, InsightType.dependency
+            ]),
+            Insight.is_resolved == False,
+            Insight.captured_at >= cutoff,
+        )
+    )
+    insights = result.scalars().all()
+
+    if not insights:
+        return 0, {"reason": "no_slack_insights", "blockers": 0, "risks": 0, "top_items": []}
+
+    # Points per severity tier — blockers weighted heavier than generic risks
+    BLOCKER_PTS = {Severity.critical: 25, Severity.high: 15, Severity.medium: 10, Severity.low: 5}
+    RISK_PTS    = {Severity.critical: 20, Severity.high: 12, Severity.medium:  6, Severity.low: 2}
+
+    score = 0
+    detail: dict = {"blockers": 0, "risks": 0, "top_items": []}
+
+    for ins in insights:
+        sev = ins.severity
+        extra = ins.extra_data or {}
+
+        if ins.insight_type in (InsightType.blocker,):
+            score += BLOCKER_PTS.get(sev, 5)
+            detail["blockers"] += 1
+        else:
+            score += RISK_PTS.get(sev, 2)
+            detail["risks"] += 1
+
+        if len(detail["top_items"]) < 5:
+            detail["top_items"].append({
+                "content": ins.content[:120],
+                "severity": sev,
+                "type": ins.insight_type,
+                "channel": extra.get("channel", ""),
+                "slack_type": extra.get("slack_type", ""),
+            })
+
+    return _clamp(score), detail
+
+
+async def score_sentiment(
+    db: AsyncSession, team: Team
+) -> tuple[int, dict]:
+    """
+    Score based on negative vs positive sentiment signals from BOTH Slack and transcripts.
+    Negative sentiment (frustration, morale issues) increases risk score.
+    Positive sentiment (confidence, progress) reduces it slightly.
+    Cap at 100, floor at 0.
+    """
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+
+    result = await db.execute(
+        select(Insight).where(
+            Insight.team_id == team.id,
+            Insight.source.in_([InsightSource.slack, InsightSource.transcript]),
+            Insight.insight_type == InsightType.sentiment,
+            Insight.captured_at >= cutoff,
+        )
+    )
+    insights = result.scalars().all()
+
+    if not insights:
+        return 0, {"reason": "no_sentiment_insights", "negative": 0, "positive": 0}
+
+    NEGATIVE_PTS = {Severity.critical: 25, Severity.high: 15, Severity.medium: 8, Severity.low: 4}
+    POSITIVE_REDUCTION = 3  # each positive signal reduces score by this amount
+
+    score = 0
+    detail: dict = {"negative": 0, "positive": 0, "sources": {"slack": 0, "transcript": 0}}
+
+    for ins in insights:
+        extra = ins.extra_data or {}
+        slack_type = extra.get("slack_type", "")
+        transcript_type = extra.get("transcript_type", "")
+        is_negative = "negative" in slack_type or "negative" in transcript_type
+
+        if is_negative:
+            score += NEGATIVE_PTS.get(ins.severity, 4)
+            detail["negative"] += 1
+        else:
+            score -= POSITIVE_REDUCTION
+            detail["positive"] += 1
+
+        src = ins.source if ins.source in detail["sources"] else "slack"
+        detail["sources"][src] = detail["sources"].get(src, 0) + 1
+
+    return _clamp(score), detail
+
+
 # ── Process Adherence ─────────────────────────────────────────────────────────
 
 def score_process_adherence(issues: list[JiraIssue]) -> tuple[int, list[dict]]:
     """
     Detect issues that jumped directly to Done without passing through In Progress.
-    This signals bypass of process (manual moves, shortcuts).
     """
-    # We look for issues with no time_in_status_hours recorded for In Progress
-    # combined with being Done — proxy for column skipping
     suspicious = []
     done_issues = [i for i in issues if i.status_category == "Done"]
 
     for issue in done_issues:
-        links = issue.issue_links or {}
         transitions = getattr(issue, "transitions", [])
         statuses_visited = {t.to_status for t in transitions}
-        # If issue went Done with no In Progress history, flag it
         has_in_progress = any(
             "progress" in s.lower() or "doing" in s.lower() or "development" in s.lower()
             for s in statuses_visited
@@ -301,7 +447,7 @@ async def compute_risk_snapshot(team_id: str) -> RiskSnapshot | None:
         if not team:
             return None
 
-        # Load active sprint issues (with transitions eagerly if available)
+        # Load active sprint issues
         result2 = await db.execute(
             select(Sprint).where(Sprint.team_id == team_id, Sprint.state == "active")
         )
@@ -329,16 +475,14 @@ async def compute_risk_snapshot(team_id: str) -> RiskSnapshot | None:
         pbi_score, pbi_detail = score_pbi_readiness(issues)
         vel_score, vel_detail = await score_velocity_trend(db, team)
         completion_score, completion_detail = await score_sprint_completion(db, team)
-        # process_score, process_detail = score_process_adherence(issues)
-        process_score, process_detail = 0, []
+        meeting_score, meeting_detail = await score_meeting_alignment(db, team)
 
         # Velocity trend is a blend of velocity decline + sprint completion
         velocity_trend_score = _clamp((vel_score + completion_score) / 2)
 
-        # Slack and meeting scores default to 0 until Phase 3
-        slack_score = 0
-        sentiment_score = 0
-        meeting_score = 0
+        # Slack and sentiment scores — derived from stored Insight records
+        slack_score, slack_detail = await score_slack_signals(db, team)
+        sentiment_score, sentiment_detail = await score_sentiment(db, team)
 
         # ── Composite weighted score ──────────────────────────────────────
         composite = _clamp(
@@ -356,10 +500,9 @@ async def compute_risk_snapshot(team_id: str) -> RiskSnapshot | None:
             "dependencies": {"score": dep_score, "detail": dep_detail[:10]},
             "pbi_readiness": {"score": pbi_score, "detail": pbi_detail[:10]},
             "velocity_trend": {"score": velocity_trend_score, "vel_detail": vel_detail, "completion_detail": completion_detail},
-            "process_adherence": {"score": process_score, "detail": process_detail[:10]},
-            "slack_blockers": {"score": slack_score},
-            "sentiment": {"score": sentiment_score},
-            "meeting_alignment": {"score": meeting_score},
+            "slack_blockers": {"score": slack_score, "detail": slack_detail},
+            "sentiment": {"score": sentiment_score, "detail": sentiment_detail},
+            "meeting_alignment": {"score": meeting_score, "detail": meeting_detail},
             "issue_count": len(issues),
             "active_sprint": active_sprint.name if active_sprint else None,
         }
@@ -391,6 +534,9 @@ async def compute_risk_snapshot(team_id: str) -> RiskSnapshot | None:
             wip=wip_score,
             deps=dep_score,
             pbi=pbi_score,
+            slack=slack_score,
+            sentiment=sentiment_score,
+            meeting=meeting_score,
         )
         return snapshot
 
@@ -419,7 +565,7 @@ async def _generate_insights(
                 content=content,
                 severity=Severity.high if item["overage_pct"] > 100 else Severity.medium,
                 captured_at=now,
-                metadata=item,
+                extra_data=item,
             ))
 
     # Blocked issue insights
@@ -436,7 +582,7 @@ async def _generate_insights(
                 content=content,
                 severity=Severity.high,
                 captured_at=now,
-                metadata=item,
+                extra_data=item,
             ))
 
     # PBI readiness insights
@@ -453,7 +599,7 @@ async def _generate_insights(
             content=content,
             severity=_score_to_severity(raw_signals["pbi_readiness"]["score"]),
             captured_at=now,
-            metadata={"not_ready": raw_signals["pbi_readiness"]["detail"][:5]},
+            extra_data={"not_ready": raw_signals["pbi_readiness"]["detail"][:5]},
         ))
 
     # Velocity insights
@@ -470,8 +616,82 @@ async def _generate_insights(
             content=content,
             severity=Severity.high if vel_detail["pct_change"] < -40 else Severity.medium,
             captured_at=now,
-            metadata=vel_detail,
+            extra_data=vel_detail,
         ))
+
+    # Slack blocker insights — summarize when score is elevated
+    slack_detail = raw_signals.get("slack_blockers", {}).get("detail", {})
+    if isinstance(slack_detail, dict):
+        blocker_count = slack_detail.get("blockers", 0)
+        risk_count = slack_detail.get("risks", 0)
+        slack_score_val = raw_signals.get("slack_blockers", {}).get("score", 0)
+        if slack_score_val >= 25:
+            parts = []
+            if blocker_count:
+                parts.append(f"{blocker_count} active blocker(s)")
+            if risk_count:
+                parts.append(f"{risk_count} risk signal(s)")
+            content = (
+                f"Slack signals indicate {' and '.join(parts)} in the last 7 days."
+                if parts else f"Elevated Slack risk score ({slack_score_val})."
+            )
+            db.add(Insight(
+                team_id=team.id,
+                source=InsightSource.slack,
+                insight_type=InsightType.risk,
+                content=content,
+                severity=_score_to_severity(slack_score_val),
+                captured_at=now,
+                extra_data=slack_detail,
+            ))
+
+    # Sentiment insights — flag when team morale is low
+    sentiment_detail = raw_signals.get("sentiment", {}).get("detail", {})
+    if isinstance(sentiment_detail, dict):
+        neg_count = sentiment_detail.get("negative", 0)
+        sentiment_score_val = raw_signals.get("sentiment", {}).get("score", 0)
+        if sentiment_score_val >= 20 and neg_count > 0:
+            sources = sentiment_detail.get("sources", {})
+            source_str = " and ".join(
+                f"{count} from {src}" for src, count in sources.items() if count > 0
+            ) or "multiple sources"
+            content = (
+                f"{neg_count} negative sentiment signal(s) detected "
+                f"({source_str}) in the last 7 days."
+            )
+            db.add(Insight(
+                team_id=team.id,
+                source=InsightSource.slack,
+                insight_type=InsightType.sentiment,
+                content=content,
+                severity=_score_to_severity(sentiment_score_val),
+                captured_at=now,
+                extra_data=sentiment_detail,
+            ))
+
+    # Meeting alignment insights
+    meeting_detail = raw_signals.get("meeting_alignment", {}).get("detail", {})
+    if isinstance(meeting_detail, dict):
+        if meeting_detail.get("scope_changes", 0) > 0:
+            db.add(Insight(
+                team_id=team.id,
+                source=InsightSource.transcript,
+                insight_type=InsightType.scope_change,
+                content=f"{meeting_detail['scope_changes']} scope change(s) detected in recent meeting transcripts.",
+                severity=Severity.high,
+                captured_at=now,
+                extra_data=meeting_detail,
+            ))
+        if meeting_detail.get("untracked_action_items", 0) > 2:
+            db.add(Insight(
+                team_id=team.id,
+                source=InsightSource.transcript,
+                insight_type=InsightType.risk,
+                content=f"{meeting_detail['untracked_action_items']} action items from meetings have no Jira reference.",
+                severity=Severity.medium,
+                captured_at=now,
+                extra_data=meeting_detail,
+            ))
 
 
 async def run_risk_scoring_for_all_teams() -> None:

@@ -94,6 +94,7 @@ async def list_slack_channels(current_user: User = Depends(get_current_user)):
 
 class SetChannelsRequest(BaseModel):
     channel_ids: List[str]
+    replace: bool = False  # if False (default), merges with existing channels
 
 
 @router.post("/slack/teams/{team_id}/channels")
@@ -103,17 +104,26 @@ async def set_team_channels(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Set which Slack channels to monitor for a team."""
+    """Add (or replace) Slack channels to monitor for a team.
+    By default merges with existing channels. Pass replace=true to overwrite."""
     result = await db.execute(select(Team).where(Team.id == team_id))
     team = result.scalar_one_or_none()
     if not team:
         raise HTTPException(status_code=404, detail="Team not found")
-    team.slack_channel_ids = body.channel_ids
+
+    if body.replace:
+        merged = body.channel_ids
+    else:
+        existing = team.slack_channel_ids or []
+        merged = list(dict.fromkeys(existing + body.channel_ids))  # preserve order, dedupe
+
+    team.slack_channel_ids = merged
     await db.commit()
     return {
         "team_id": team_id,
         "slack_channel_ids": team.slack_channel_ids,
-        "message": f"Configured {len(body.channel_ids)} channel(s)",
+        "added": [c for c in body.channel_ids if c not in (team.slack_channel_ids or [])],
+        "message": f"Monitoring {len(merged)} channel(s)",
     }
 
 

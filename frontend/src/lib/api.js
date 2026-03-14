@@ -58,6 +58,28 @@ export const api = {
     }),
   getChatHistory: (sessionId) => request(`/chat/history/${sessionId}`),
 
+  // Transcripts
+  uploadTranscript: (data) => request('/transcripts/upload', { method: 'POST', body: JSON.stringify(data) }),
+  listTranscripts: (teamId, days = 30) => request(`/transcripts/?team_id=${teamId}&days=${days}`),
+  getTranscript: (id) => request(`/transcripts/${id}`),
+  deleteTranscript: (id) => request(`/transcripts/${id}`, { method: 'DELETE' }),
+  syncGoogleDrive: (teamId) => request(`/transcripts/sync/${teamId}`, { method: 'POST' }),
+  syncAllCompany: (daysBack = 30) => request(`/transcripts/sync/all?days_back=${daysBack}`, { method: 'POST' }),
+  getGoogleAuthUrl: (teamId) => request(`/transcripts/google/auth?team_id=${teamId}`),
+  getGoogleStatus: () => request('/transcripts/google/status'),
+
+  // Healthcheck
+  generateHealthcheck: (teamId) => request(`/healthcheck/teams/${teamId}/generate`, { method: 'POST' }),
+  getHealthcheck: (teamId) => request(`/healthcheck/teams/${teamId}/latest`),
+  getHealthcheckStatus: (teamId) => request(`/healthcheck/teams/${teamId}/status`),
+
+  // Feed
+  getFeed: (teamId, { source = 'all', severity = 'all', issueKey, page = 1, limit = 20 } = {}) => {
+    const params = new URLSearchParams({ source, severity, page, limit })
+    if (issueKey) params.set('issue_key', issueKey)
+    return request(`/feed/teams/${teamId}?${params}`)
+  },
+
   // Streaming chat
   streamChat: async function* (message, teamId, sessionId) {
     const res = await fetch(`${BASE}/chat/stream`, {

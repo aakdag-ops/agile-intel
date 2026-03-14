@@ -9,21 +9,23 @@ const SEVERITY_COLORS = {
   low:      'var(--risk-low)',
 }
 const TYPE_ICONS = {
-  blocker:    '⛔',
-  risk:       '⚠',
-  decision:   '◆',
-  sentiment:  '◎',
-  dependency: '⇢',
-  velocity:   '⟳',
-  process:    '⊡',
+  blocker:      '⛔',
+  risk:         '⚠',
+  decision:     '◆',
+  sentiment:    '◎',
+  dependency:   '⇢',
+  scope_change: '⇄',
+  velocity:     '⟳',
+  process:      '⊡',
 }
 const SOURCE_COLORS = {
-  jira:     'var(--blue)',
-  slack:    'var(--green)',
-  meeting:  'var(--amber)',
+  jira:       'var(--blue)',
+  slack:      'var(--green)',
+  transcript: 'var(--amber)',
+  meeting:    'var(--amber)',
 }
 
-function InsightItem({ insight, isFirst }) {
+function InsightItem({ insight }) {
   const color = SEVERITY_COLORS[insight.severity] || 'var(--text-muted)'
   const srcColor = SOURCE_COLORS[insight.source] || 'var(--text-muted)'
   const [expanded, setExpanded] = useState(false)
@@ -35,7 +37,7 @@ function InsightItem({ insight, isFirst }) {
         <div style={{
           width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
           background: color, boxShadow: `0 0 6px ${color}`,
-          marginTop: 4,
+          marginTop: 5,
         }} />
         <div style={{ flex: 1, width: 1, background: 'var(--border)', minHeight: 32 }} />
       </div>
@@ -47,33 +49,33 @@ function InsightItem({ insight, isFirst }) {
           flex: 1, marginBottom: 12,
           background: 'var(--bg-card)', border: `1px solid ${color}20`,
           borderLeft: `3px solid ${color}`,
-          borderRadius: 'var(--radius)', padding: '10px 14px',
+          borderRadius: 'var(--radius)', padding: '12px 16px',
           cursor: 'pointer', transition: 'all 0.15s',
         }}
         onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
         onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card)'}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: expanded ? 8 : 0 }}>
-          <span style={{ fontSize: 13 }}>{TYPE_ICONS[insight.insight_type] || '•'}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: expanded ? 10 : 0 }}>
+          <span style={{ fontSize: 14 }}>{TYPE_ICONS[insight.insight_type] || '•'}</span>
           <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: 9,
+            fontFamily: 'var(--font-mono)', fontSize: 11,
             color: srcColor, background: `${srcColor}15`,
             border: `1px solid ${srcColor}30`,
-            borderRadius: 3, padding: '1px 5px',
+            borderRadius: 3, padding: '2px 6px',
           }}>{insight.source.toUpperCase()}</span>
           <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: 9,
+            fontFamily: 'var(--font-mono)', fontSize: 11,
             color: 'var(--text-muted)',
           }}>{insight.insight_type.toUpperCase()}</span>
           <span style={{
-            marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 9,
+            marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 11,
             color: 'var(--text-muted)',
           }}>{new Date(insight.captured_at).toLocaleString()}</span>
           <span style={{
-            fontFamily: 'var(--font-mono)', fontSize: 9,
+            fontFamily: 'var(--font-mono)', fontSize: 11,
             color, background: `${color}15`,
             border: `1px solid ${color}30`,
-            borderRadius: 3, padding: '1px 5px',
+            borderRadius: 3, padding: '2px 6px',
           }}>{insight.severity?.toUpperCase()}</span>
         </div>
 
@@ -87,9 +89,10 @@ function InsightItem({ insight, isFirst }) {
 
         {insight.extra_data && expanded && (
           <div style={{
-            marginTop: 8, padding: 8,
+            marginTop: 10, padding: 10,
             background: 'var(--bg-deep)', borderRadius: 'var(--radius-sm)',
-            fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)',
+            fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)',
+            whiteSpace: 'pre-wrap',
           }}>
             {JSON.stringify(insight.extra_data, null, 2)}
           </div>
@@ -103,7 +106,7 @@ function DateGroup({ date, insights }) {
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{
-        fontFamily: 'var(--font-mono)', fontSize: 10,
+        fontFamily: 'var(--font-mono)', fontSize: 12,
         color: 'var(--text-muted)', letterSpacing: '0.1em',
         marginBottom: 12, marginLeft: 36,
         display: 'flex', alignItems: 'center', gap: 8,
@@ -146,7 +149,6 @@ export default function Timeline() {
     return true
   })
 
-  // Group by date
   const grouped = {}
   for (const ins of filtered) {
     const d = new Date(ins.captured_at).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -154,80 +156,62 @@ export default function Timeline() {
     grouped[d].push(ins)
   }
 
+  const filterBtn = (active, color, label, onClick) => (
+    <button onClick={onClick} style={{
+      background: active ? (color ? `${color}15` : 'var(--bg-hover)') : 'var(--bg-card)',
+      border: `1px solid ${active ? (color || 'var(--border-bright)') : 'var(--border)'}`,
+      borderRadius: 'var(--radius)', padding: '6px 13px',
+      color: active ? (color || 'var(--text-primary)') : 'var(--text-muted)',
+      cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 12,
+    }}>{label}</button>
+  )
+
   return (
-    <div style={{ padding: 32, maxWidth: 800 }}>
+    <div style={{ padding: '36px 40px', maxWidth: 860 }}>
       {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
           <span style={{ cursor: 'pointer', color: 'var(--amber)' }} onClick={() => navigate('/teams')}>TEAMS</span>
           {' / '}
           <span style={{ cursor: 'pointer', color: 'var(--amber)' }} onClick={() => navigate(`/dashboard/${teamId}`)}>{team?.jira_project_key}</span>
           {' / TIMELINE'}
         </div>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 26, fontWeight: 800 }}>Insight Timeline</h1>
-        <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800 }}>Insight Timeline</h1>
+        <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 5 }}>
           {filtered.length} insights · {days} days
         </p>
       </div>
 
       {/* Filters */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 28, flexWrap: 'wrap' }}>
-        {/* Days */}
-        {[7, 14, 30, 60].map(d => (
-          <button key={d} onClick={() => setDays(d)} style={{
-            background: days === d ? 'var(--amber)' : 'var(--bg-card)',
-            border: `1px solid ${days === d ? 'var(--amber)' : 'var(--border)'}`,
-            borderRadius: 'var(--radius)', padding: '5px 12px',
-            color: days === d ? '#000' : 'var(--text-muted)',
-            cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 10,
-          }}>{d}D</button>
-        ))}
-        <div style={{ width: 1, background: 'var(--border)' }} />
-        {/* Source */}
-        {['all', 'jira', 'slack', 'meeting'].map(s => (
-          <button key={s} onClick={() => setFilterSource(s)} style={{
-            background: filterSource === s ? 'var(--bg-hover)' : 'var(--bg-card)',
-            border: `1px solid ${filterSource === s ? 'var(--border-bright)' : 'var(--border)'}`,
-            borderRadius: 'var(--radius)', padding: '5px 12px',
-            color: filterSource === s ? 'var(--text-primary)' : 'var(--text-muted)',
-            cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 10,
-          }}>{s.toUpperCase()}</button>
-        ))}
-        <div style={{ width: 1, background: 'var(--border)' }} />
-        {/* Severity */}
-        {['all', 'critical', 'high', 'medium', 'low'].map(s => {
-          const c = SEVERITY_COLORS[s] || 'var(--text-muted)'
-          return (
-            <button key={s} onClick={() => setFilterSeverity(s)} style={{
-              background: filterSeverity === s ? `${c}15` : 'var(--bg-card)',
-              border: `1px solid ${filterSeverity === s ? c : 'var(--border)'}`,
-              borderRadius: 'var(--radius)', padding: '5px 12px',
-              color: filterSeverity === s ? c : 'var(--text-muted)',
-              cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 10,
-            }}>{s.toUpperCase()}</button>
-          )
-        })}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 28, flexWrap: 'wrap', alignItems: 'center' }}>
+        {[7, 14, 30, 60].map(d => filterBtn(days === d, null, `${d}D`, () => setDays(d)))}
+        <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+        {['all', 'jira', 'slack', 'transcript'].map(s => filterBtn(filterSource === s, null, s.toUpperCase(), () => setFilterSource(s)))}
+        <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+        {['all', 'critical', 'high', 'medium', 'low'].map(s =>
+          filterBtn(filterSeverity === s, SEVERITY_COLORS[s], s.toUpperCase(), () => setFilterSeverity(s))
+        )}
       </div>
 
       {loading ? (
-        <div style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>LOADING...</div>
+        <div style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>LOADING...</div>
       ) : Object.keys(grouped).length === 0 ? (
         <div style={{
           background: 'var(--bg-card)', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)', padding: 40, textAlign: 'center',
+          borderRadius: 'var(--radius-lg)', padding: 48, textAlign: 'center',
         }}>
-          <div style={{ fontSize: 28, marginBottom: 12 }}>◈</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
+          <div style={{ fontSize: 32, marginBottom: 14 }}>◈</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)' }}>
             NO INSIGHTS YET
           </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 8 }}>
             Run a risk refresh to generate insights from your Jira data.
           </p>
           <button onClick={() => api.refreshRisk(teamId)} style={{
-            marginTop: 16, background: 'var(--amber)', border: 'none',
-            borderRadius: 'var(--radius)', padding: '8px 20px',
+            marginTop: 18, background: 'var(--amber)', border: 'none',
+            borderRadius: 'var(--radius)', padding: '9px 22px',
             color: '#000', cursor: 'pointer',
-            fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700,
+            fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700,
           }}>↻ REFRESH RISK</button>
         </div>
       ) : (

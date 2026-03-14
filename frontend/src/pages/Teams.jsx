@@ -22,14 +22,14 @@ function RiskBar({ score }) {
         }} />
       </div>
       <span style={{
-        fontFamily: 'var(--font-mono)', fontSize: 10,
-        color, minWidth: 52,
+        fontFamily: 'var(--font-mono)', fontSize: 12,
+        color, minWidth: 54,
       }}>{score}/100</span>
       <span style={{
-        fontFamily: 'var(--font-mono)', fontSize: 9,
+        fontFamily: 'var(--font-mono)', fontSize: 11,
         color, background: `${color}18`,
         border: `1px solid ${color}30`,
-        borderRadius: 3, padding: '1px 6px', minWidth: 56, textAlign: 'center',
+        borderRadius: 3, padding: '2px 7px', minWidth: 60, textAlign: 'center',
       }}>{label}</span>
     </div>
   )
@@ -41,14 +41,14 @@ function SignalDot({ score, label }) {
     : score >= 25 ? 'var(--risk-medium)'
     : 'var(--risk-low)'
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
       <div style={{
-        width: 32, height: 32, borderRadius: '50%',
+        width: 36, height: 36, borderRadius: '50%',
         background: `${color}20`, border: `2px solid ${color}`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'var(--font-mono)', fontSize: 9, color,
+        fontFamily: 'var(--font-mono)', fontSize: 11, color, fontWeight: 600,
       }}>{score}</div>
-      <span style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center', lineHeight: 1.2 }}>{label}</span>
+      <span style={{ fontSize: 10, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center', lineHeight: 1.2 }}>{label}</span>
     </div>
   )
 }
@@ -86,42 +86,42 @@ function TeamCard({ team, onSelect }) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <span style={{
-              fontFamily: 'var(--font-mono)', fontSize: 10,
+              fontFamily: 'var(--font-mono)', fontSize: 12,
               color: 'var(--amber)', background: 'var(--amber-glow)',
               border: '1px solid var(--amber-dim)',
-              borderRadius: 3, padding: '2px 6px',
+              borderRadius: 3, padding: '2px 8px',
             }}>{team.jira_project_key}</span>
             {team.active_sprint_name && (
               <span style={{
-                fontFamily: 'var(--font-mono)', fontSize: 9,
+                fontFamily: 'var(--font-mono)', fontSize: 11,
                 color: 'var(--green)', background: 'rgba(16,185,129,0.1)',
                 border: '1px solid rgba(16,185,129,0.3)',
-                borderRadius: 3, padding: '2px 6px',
+                borderRadius: 3, padding: '2px 7px',
               }}>● ACTIVE SPRINT</span>
             )}
           </div>
           <h2 style={{
-            fontFamily: 'var(--font-display)', fontSize: 18,
+            fontFamily: 'var(--font-display)', fontSize: 20,
             fontWeight: 700, color: 'var(--text-primary)',
           }}>{team.name}</h2>
           {team.active_sprint_name && (
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
               {team.active_sprint_name}
             </p>
           )}
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: 32, fontWeight: 700,
+            fontFamily: 'var(--font-mono)', fontSize: 34, fontWeight: 700,
             color: score >= 75 ? 'var(--risk-critical)'
               : score >= 50 ? 'var(--risk-high)'
               : score >= 25 ? 'var(--risk-medium)'
               : 'var(--risk-low)',
             lineHeight: 1,
           }}>{score}</div>
-          <div style={{ fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>RISK SCORE</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>RISK SCORE</div>
         </div>
       </div>
 
@@ -137,12 +137,12 @@ function TeamCard({ team, onSelect }) {
           padding: '12px 0', borderTop: '1px solid var(--border)',
           borderBottom: '1px solid var(--border)', marginBottom: 16,
         }}>
-          <SignalDot score={snapshot.wip_aging_score} label="WIP AGING" />
-          <SignalDot score={snapshot.dependency_score} label="DEPENDS" />
-          <SignalDot score={snapshot.velocity_trend_score} label="VELOCITY" />
-          <SignalDot score={snapshot.pbi_readiness_score} label="READINESS" />
+          <SignalDot score={snapshot.wip_aging_score} label="WIP" />
+          <SignalDot score={snapshot.dependency_score} label="DEPS" />
+          <SignalDot score={snapshot.velocity_trend_score} label="VEL" />
+          <SignalDot score={snapshot.pbi_readiness_score} label="PBI" />
           <SignalDot score={snapshot.slack_blocker_score} label="SLACK" />
-          <SignalDot score={snapshot.sentiment_score} label="SENTIMENT" />
+          <SignalDot score={snapshot.sentiment_score} label="SENT" />
         </div>
       )}
 
@@ -156,10 +156,10 @@ function TeamCard({ team, onSelect }) {
           <button key={btn.path} onClick={() => navigate(btn.path)} style={{
             flex: 1, background: 'var(--bg-deep)',
             border: '1px solid var(--border)',
-            borderRadius: 'var(--radius)', padding: '7px 4px',
+            borderRadius: 'var(--radius)', padding: '8px 4px',
             color: 'var(--text-secondary)', cursor: 'pointer',
-            fontFamily: 'var(--font-mono)', fontSize: 9,
-            letterSpacing: '0.06em', transition: 'all 0.15s',
+            fontFamily: 'var(--font-mono)', fontSize: 11,
+            letterSpacing: '0.05em', transition: 'all 0.15s',
           }}
           onMouseEnter={e => {
             e.currentTarget.style.borderColor = 'var(--amber)'
@@ -174,7 +174,7 @@ function TeamCard({ team, onSelect }) {
       </div>
 
       {team.last_jira_sync && (
-        <div style={{ marginTop: 10, fontSize: 9, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+        <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
           LAST SYNC: {new Date(team.last_jira_sync).toLocaleString()}
         </div>
       )}
@@ -214,29 +214,29 @@ export default function Teams() {
   }
 
   return (
-    <div style={{ padding: 32 }}>
+    <div style={{ padding: '36px 40px' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32 }}>
         <div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.1em', marginBottom: 4 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)', letterSpacing: '0.1em', marginBottom: 6 }}>
             AGILE INTEL ◈ MISSION CONTROL
           </div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 800, color: 'var(--text-primary)' }}>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 30, fontWeight: 800, color: 'var(--text-primary)' }}>
             Projects
           </h1>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => teams.forEach(t => handleSync(t.id))} style={{
             background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius)', padding: '9px 16px',
+            borderRadius: 'var(--radius)', padding: '10px 18px',
             color: 'var(--text-secondary)', cursor: 'pointer',
-            fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em',
+            fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.06em',
           }}>↻ SYNC ALL</button>
           <button onClick={() => setShowNew(!showNew)} style={{
             background: 'var(--amber)', border: 'none',
-            borderRadius: 'var(--radius)', padding: '9px 16px',
+            borderRadius: 'var(--radius)', padding: '10px 18px',
             color: '#000', cursor: 'pointer',
-            fontFamily: 'var(--font-mono)', fontSize: 10,
+            fontFamily: 'var(--font-mono)', fontSize: 12,
             fontWeight: 700, letterSpacing: '0.06em',
           }}>+ NEW TEAM</button>
         </div>
@@ -246,7 +246,7 @@ export default function Teams() {
       {showNew && (
         <form onSubmit={handleCreate} style={{
           background: 'var(--bg-card)', border: '1px solid var(--amber)',
-          borderRadius: 'var(--radius-lg)', padding: 20, marginBottom: 24,
+          borderRadius: 'var(--radius-lg)', padding: 22, marginBottom: 24,
           display: 'flex', gap: 12, alignItems: 'flex-end',
           animation: 'fadeIn 0.2s ease',
         }}>
@@ -255,16 +255,16 @@ export default function Teams() {
             { key: 'jira_project_key', label: 'JIRA KEY', placeholder: 'ONB' },
             { key: 'description', label: 'DESCRIPTION', placeholder: 'Optional' },
           ].map(f => (
-            <div key={f.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', letterSpacing: '0.1em' }}>{f.label}</label>
+            <div key={f.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <label style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', letterSpacing: '0.1em' }}>{f.label}</label>
               <input
                 value={newTeam[f.key]}
                 onChange={e => setNewTeam(n => ({ ...n, [f.key]: e.target.value }))}
                 placeholder={f.placeholder}
                 style={{
                   background: 'var(--bg-input)', border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius)', padding: '8px 12px',
-                  color: 'var(--text-primary)', fontSize: 13,
+                  borderRadius: 'var(--radius)', padding: '9px 12px',
+                  color: 'var(--text-primary)', fontSize: 14,
                   fontFamily: 'var(--font-body)', outline: 'none',
                 }}
               />
@@ -272,15 +272,15 @@ export default function Teams() {
           ))}
           <button type="submit" disabled={creating} style={{
             background: 'var(--amber)', border: 'none', borderRadius: 'var(--radius)',
-            padding: '9px 20px', color: '#000', cursor: 'pointer',
-            fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700,
+            padding: '10px 20px', color: '#000', cursor: 'pointer',
+            fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700,
           }}>{creating ? '...' : 'CREATE'}</button>
         </form>
       )}
 
       {/* Grid */}
       {loading ? (
-        <div style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+        <div style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', fontSize: 13 }}>
           LOADING PROJECTS...
         </div>
       ) : (

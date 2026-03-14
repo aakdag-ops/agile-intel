@@ -36,7 +36,7 @@ export default function Layout() {
     navigate('/login')
   }
 
-  const sideW = collapsed ? 56 : 220
+  const sideW = collapsed ? 56 : 260
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
@@ -60,7 +60,7 @@ export default function Layout() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ color: 'var(--amber)', fontSize: 18 }}>◈</span>
               <span style={{
-                fontFamily: 'var(--font-display)', fontSize: 14,
+                fontFamily: 'var(--font-display)', fontSize: 15,
                 fontWeight: 800, letterSpacing: '0.1em', color: 'var(--text-primary)',
               }}>AGILE INTEL</span>
             </div>
@@ -83,7 +83,7 @@ export default function Layout() {
               gap: 10, padding: collapsed ? '10px 16px' : '10px 20px',
               color: isActive ? 'var(--amber)' : 'var(--text-secondary)',
               background: isActive ? 'var(--amber-glow)' : 'transparent',
-              textDecoration: 'none', fontSize: 11,
+              textDecoration: 'none', fontSize: 13,
               fontFamily: 'var(--font-mono)', letterSpacing: '0.08em',
               borderLeft: isActive ? '2px solid var(--amber)' : '2px solid transparent',
               transition: 'all 0.15s',
@@ -97,28 +97,40 @@ export default function Layout() {
           {teams.length > 0 && !collapsed && (
             <div style={{ marginTop: 16 }}>
               <div style={{
-                padding: '6px 20px', fontSize: 9,
+                padding: '6px 20px', fontSize: 11,
                 fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
                 letterSpacing: '0.12em',
               }}>PROJECTS</div>
               {teams.map(team => (
-                <div key={team.id} style={{ position: 'relative' }}>
+                <div key={team.id} style={{ marginBottom: 4 }}>
+                  {/* Team name header */}
+                  <div style={{
+                    padding: '8px 20px 4px 20px',
+                    fontSize: 11, fontFamily: 'var(--font-mono)',
+                    color: 'var(--text-muted)', letterSpacing: '0.1em',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}>
+                    <span style={{ color: 'var(--amber)', fontSize: 10 }}>◆</span>
+                    {team.jira_project_key} · {team.name}
+                  </div>
+                  {/* Sub-links */}
                   {[
                     { icon: '◉', label: 'DASHBOARD', path: `/dashboard/${team.id}` },
                     { icon: '◆', label: 'CHAT', path: `/chat/${team.id}` },
                     { icon: '◈', label: 'TIMELINE', path: `/timeline/${team.id}` },
+                    { icon: '⬡', label: 'FEED', path: `/feed/${team.id}` },
                   ].map(item => (
                     <NavLink key={item.path} to={item.path} style={({ isActive }) => ({
                       display: 'flex', alignItems: 'center',
-                      gap: 8, padding: '8px 20px 8px 28px',
+                      gap: 8, padding: '8px 20px 8px 32px',
                       color: isActive ? 'var(--amber)' : 'var(--text-muted)',
                       background: isActive ? 'var(--amber-glow)' : 'transparent',
-                      textDecoration: 'none', fontSize: 10,
+                      textDecoration: 'none', fontSize: 12,
                       fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
                       borderLeft: isActive ? '2px solid var(--amber)' : '2px solid transparent',
                       transition: 'all 0.15s',
                     })}>
-                      <span style={{ fontSize: 10 }}>{item.icon}</span>
+                      <span style={{ fontSize: 12 }}>{item.icon}</span>
                       {item.label}
                     </NavLink>
                   ))}
@@ -136,7 +148,7 @@ export default function Layout() {
           <button onClick={logout} style={{
             background: 'none', border: '1px solid var(--border)',
             borderRadius: 'var(--radius)', color: 'var(--text-muted)',
-            cursor: 'pointer', fontSize: 10,
+            cursor: 'pointer', fontSize: 12,
             fontFamily: 'var(--font-mono)', letterSpacing: '0.06em',
             padding: collapsed ? '8px' : '8px 12px',
             width: '100%', transition: 'all 0.15s',

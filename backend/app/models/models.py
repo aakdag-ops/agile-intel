@@ -112,6 +112,8 @@ class Team(Base):
     insights: Mapped[list["Insight"]] = relationship("Insight", back_populates="team")
     jira_issues: Mapped[list["JiraIssue"]] = relationship("JiraIssue", back_populates="team")
     sprints: Mapped[list["Sprint"]] = relationship("Sprint", back_populates="team")
+    transcripts: Mapped[list["Transcript"]] = relationship("Transcript", back_populates="team")
+    healthchecks: Mapped[list["BacklogHealthcheck"]] = relationship("BacklogHealthcheck", back_populates="team")
 
 
 class TeamMember(Base):
@@ -250,12 +252,36 @@ class RiskSnapshot(Base):
     )
 
 
+class Transcript(Base):
+    """Meeting transcript ingested manually or from Google Drive."""
+    __tablename__ = "transcripts"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
+    team_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("teams.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(300), nullable=False)
+    source: Mapped[str] = mapped_column(String(20), nullable=False)          # "manual" | "google_drive"
+    google_doc_id: Mapped[str | None] = mapped_column(String(200), nullable=True, unique=True)
+    raw_text: Mapped[str] = mapped_column(Text, nullable=False)
+    meeting_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    participants: Mapped[list | None] = mapped_column(JSONB, nullable=True, default=list)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    team: Mapped["Team"] = relationship("Team", back_populates="transcripts")
+    insights: Mapped[list["Insight"]] = relationship("Insight", back_populates="transcript")
+
+    __table_args__ = (
+        Index("ix_transcripts_team_date", "team_id", "meeting_date"),
+    )
+
+
 class Insight(Base):
     """Individual insights extracted from any source."""
     __tablename__ = "insights"
 
     id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
     team_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("teams.id", ondelete="CASCADE"), index=True)
+    transcript_id: Mapped[str | None] = mapped_column(UUID(as_uuid=False), ForeignKey("transcripts.id", ondelete="SET NULL"), nullable=True, index=True)
     source: Mapped[str] = mapped_column(String(20), nullable=False)
     insight_type: Mapped[str] = mapped_column(String(50), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
@@ -266,9 +292,38 @@ class Insight(Base):
     extra_data: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
 
     team: Mapped["Team"] = relationship("Team", back_populates="insights")
+    transcript: Mapped["Transcript | None"] = relationship("Transcript", back_populates="insights")
 
     __table_args__ = (
         Index("ix_insights_team_source_time", "team_id", "source", "captured_at"),
+    )
+
+
+class BacklogHealthcheck(Base):
+    """Stores a generated PBL healthcheck report for a team."""
+    __tablename__ = "backlog_healthchecks"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
+    team_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)  # pending|running|complete|failed
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    period_days: Mapped[int] = mapped_column(Integer, default=180)
+    total_items: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Populated when status=complete
+    lead_times: Mapped[dict | None] = mapped_column(JSONB, nullable=True)          # {avg, story, bug, task}
+    item_scores: Mapped[dict | None] = mapped_column(JSONB, nullable=True)         # {issue_key: {criterion: "good"|"medium"|"critical"}}
+    item_groups: Mapped[dict | None] = mapped_column(JSONB, nullable=True)         # {completed_last_month:[keys], ...}
+    column_stats: Mapped[dict | None] = mapped_column(JSONB, nullable=True)        # {group: {criterion: {good:%, medium:%, critical:%}}}
+    ai_insights: Mapped[dict | None] = mapped_column(JSONB, nullable=True)         # {completed_last_month:"...", ...}
+    top_issues: Mapped[list | None] = mapped_column(JSONB, nullable=True)          # [{key, summary, root_cause}]
+    concrete_actions: Mapped[list | None] = mapped_column(JSONB, nullable=True)    # ["action 1", ...]
+
+    team: Mapped["Team"] = relationship("Team", back_populates="healthchecks")
+
+    __table_args__ = (
+        Index("ix_backlog_healthchecks_team_generated", "team_id", "generated_at"),
     )
 
 

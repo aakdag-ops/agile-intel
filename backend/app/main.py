@@ -5,11 +5,13 @@ from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, chat, integrations, risk, teams
+from app.api import auth, chat, feed, healthcheck, integrations, risk, teams
+from app.api import transcripts
 from app.core.config import settings
 from app.core.logging import logger, setup_logging
 from app.pipelines.jira_sync import run_jira_sync_for_all_teams
 from app.pipelines.slack_sync import sync_slack_all_teams
+from app.pipelines.transcript_sync import sync_transcripts_all_teams
 from app.services.risk_engine import run_risk_scoring_for_all_teams
 
 scheduler = AsyncIOScheduler()
@@ -48,6 +50,18 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("slack_scheduler.skipped", reason="no SLACK_BOT_TOKEN")
 
+    # Schedule transcript sync (Google Drive)
+    if settings.google_client_id and settings.google_client_secret:
+        scheduler.add_job(
+            sync_transcripts_all_teams,
+            trigger=IntervalTrigger(minutes=settings.transcript_sync_interval_minutes),
+            id="transcript_sync",
+            replace_existing=True,
+        )
+        logger.info("transcript_scheduler.enabled", interval_minutes=settings.transcript_sync_interval_minutes)
+    else:
+        logger.info("transcript_scheduler.skipped", reason="no GOOGLE_CLIENT_ID/SECRET")
+
     scheduler.start()
     logger.info("scheduler.started", jobs=len(scheduler.get_jobs()))
 
@@ -79,6 +93,9 @@ app.include_router(teams.router, prefix=PREFIX)
 app.include_router(risk.router, prefix=PREFIX)
 app.include_router(chat.router, prefix=PREFIX)
 app.include_router(integrations.router, prefix=PREFIX)
+app.include_router(transcripts.router, prefix=PREFIX)
+app.include_router(healthcheck.router, prefix=PREFIX)
+app.include_router(feed.router, prefix=PREFIX)
 
 
 @app.get("/health")

@@ -7,6 +7,9 @@ import Dashboard from './pages/Dashboard'
 import Chat from './pages/Chat'
 import Timeline from './pages/Timeline'
 import Teams from './pages/Teams'
+import Transcripts from './pages/Transcripts'
+import Healthcheck from './pages/Healthcheck'
+import Feed from './pages/Feed'
 
 function RequireAuth({ children }) {
   const token = getToken()
@@ -29,6 +32,9 @@ export default function App() {
         <Route path="dashboard/:teamId" element={<Dashboard />} />
         <Route path="chat/:teamId?" element={<Chat />} />
         <Route path="timeline/:teamId" element={<Timeline />} />
+        <Route path="transcripts/:teamId" element={<Transcripts />} />
+        <Route path="healthcheck/:teamId" element={<Healthcheck />} />
+        <Route path="feed/:teamId" element={<Feed />} />
       </Route>
     </Routes>
   )

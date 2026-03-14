@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime, timezone
 
@@ -84,7 +85,7 @@ async def chat_stream(
     history = [{"role": r.role, "content": r.content} for r in history_rows]
 
     async def event_generator():
-        yield f"data: {{\"session_id\": \"{session_id}\"}}\n\n"
+        yield f"data: {json.dumps({'session_id': session_id})}\n\n"
         async for chunk in chat_service.stream_chat(
             db=db,
             user_id=current_user.id,
@@ -93,9 +94,7 @@ async def chat_stream(
             session_id=session_id,
             history=history,
         ):
-            # Escape for SSE
-            chunk_escaped = chunk.replace("\n", "\\n")
-            yield f"data: {{\"text\": \"{chunk_escaped}\"}}\n\n"
+            yield f"data: {json.dumps({'text': chunk})}\n\n"
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(

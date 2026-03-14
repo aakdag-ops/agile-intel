@@ -127,7 +127,7 @@ class InsightResponse(BaseModel):
     severity: str
     captured_at: datetime
     is_resolved: bool
-    metadata: dict | None
+    extra_data: dict | None = None
 
     model_config = {"from_attributes": True}
 
