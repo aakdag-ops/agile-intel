@@ -80,6 +80,15 @@ export const api = {
     return request(`/feed/teams/${teamId}?${params}`)
   },
 
+  // Agent Pipeline
+  getAgentConfig: (teamId) => request(`/agents/teams/${teamId}/config`).catch(() => null),
+  upsertAgentConfig: (teamId, data) => request(`/agents/teams/${teamId}/config`, { method: 'PUT', body: JSON.stringify(data) }),
+  listAgentPipelines: (teamId, limit = 20) => request(`/agents/teams/${teamId}/pipelines?limit=${limit}`),
+  getAgentPipeline: (teamId, pipelineId) => request(`/agents/teams/${teamId}/pipelines/${pipelineId}`),
+  triggerAgentPipeline: (teamId, data) => request(`/agents/teams/${teamId}/trigger`, { method: 'POST', body: JSON.stringify(data) }),
+  pollAgentBoard: (teamId) => request(`/agents/teams/${teamId}/poll`, { method: 'POST' }),
+  deleteAgentPipeline: (teamId, pipelineId) => request(`/agents/teams/${teamId}/pipelines/${pipelineId}`, { method: 'DELETE' }),
+
   // Streaming chat
   streamChat: async function* (message, teamId, sessionId) {
     const res = await fetch(`${BASE}/chat/stream`, {

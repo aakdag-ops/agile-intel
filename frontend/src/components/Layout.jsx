@@ -119,6 +119,7 @@ export default function Layout() {
                     { icon: '◆', label: 'CHAT', path: `/chat/${team.id}` },
                     { icon: '◈', label: 'TIMELINE', path: `/timeline/${team.id}` },
                     { icon: '⬡', label: 'FEED', path: `/feed/${team.id}` },
+                    { icon: '▶', label: 'AGENTS', path: `/agents/${team.id}` },
                   ].map(item => (
                     <NavLink key={item.path} to={item.path} style={({ isActive }) => ({
                       display: 'flex', alignItems: 'center',

@@ -200,3 +200,78 @@ class ProjectStatusResponse(BaseModel):
     signal_breakdown: dict[str, int]
     trend_direction: str
     summary: str  # AI-generated
+
+
+# ── Agent Pipeline ────────────────────────────────────────────────────────────
+
+class AgentConfigUpdate(BaseModel):
+    request_board_id: int | None = None
+    request_jql: str | None = None
+    target_project_key: str | None = None
+    github_repo_url: str | None = None
+    github_token: str | None = None
+    enable_solution_architect: bool | None = None
+    enable_pbi_generator: bool | None = None
+    enable_dependency_agent: bool | None = None
+    enable_backlog_dispatcher: bool | None = None
+    auto_create_jira_issues: bool | None = None
+    poll_interval_minutes: int | None = None
+
+
+class AgentConfigResponse(BaseModel):
+    id: str
+    team_id: str
+    request_board_id: int | None
+    request_jql: str | None
+    target_project_key: str | None
+    github_repo_url: str | None
+    enable_solution_architect: bool
+    enable_pbi_generator: bool
+    enable_dependency_agent: bool
+    enable_backlog_dispatcher: bool
+    auto_create_jira_issues: bool
+    poll_interval_minutes: int
+    last_polled_at: datetime | None
+    last_processed_issue_key: str | None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AgentStepResultResponse(BaseModel):
+    id: str
+    pipeline_id: str
+    step_order: int
+    agent_name: str
+    agent_label: str
+    status: str
+    started_at: datetime | None
+    completed_at: datetime | None
+    duration_ms: int | None
+    output: dict | None
+    error: str | None
+
+    model_config = {"from_attributes": True}
+
+
+class AgentPipelineResponse(BaseModel):
+    id: str
+    team_id: str
+    trigger_issue_key: str
+    trigger_issue_summary: str
+    trigger_issue_data: dict | None
+    status: str
+    started_at: datetime | None
+    completed_at: datetime | None
+    error: str | None
+    created_at: datetime
+    steps: list[AgentStepResultResponse] = []
+
+    model_config = {"from_attributes": True}
+
+
+class TriggerPipelineRequest(BaseModel):
+    issue_key: str
+    issue_summary: str
+    issue_data: dict | None = None

@@ -10,6 +10,7 @@ import Teams from './pages/Teams'
 import Transcripts from './pages/Transcripts'
 import Healthcheck from './pages/Healthcheck'
 import Feed from './pages/Feed'
+import Agents from './pages/Agents'
 
 function RequireAuth({ children }) {
   const token = getToken()
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="transcripts/:teamId" element={<Transcripts />} />
         <Route path="healthcheck/:teamId" element={<Healthcheck />} />
         <Route path="feed/:teamId" element={<Feed />} />
+        <Route path="agents/:teamId" element={<Agents />} />
       </Route>
     </Routes>
   )

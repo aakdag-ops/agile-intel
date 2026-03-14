@@ -114,6 +114,8 @@ class Team(Base):
     sprints: Mapped[list["Sprint"]] = relationship("Sprint", back_populates="team")
     transcripts: Mapped[list["Transcript"]] = relationship("Transcript", back_populates="team")
     healthchecks: Mapped[list["BacklogHealthcheck"]] = relationship("BacklogHealthcheck", back_populates="team")
+    agent_config: Mapped["AgentConfig | None"] = relationship("AgentConfig", back_populates="team", uselist=False)
+    agent_pipelines: Mapped[list["AgentPipeline"]] = relationship("AgentPipeline", back_populates="team")
 
 
 class TeamMember(Base):
@@ -340,3 +342,94 @@ class ChatMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     user: Mapped["User"] = relationship("User", back_populates="chat_messages")
+
+
+# ── Agent Pipeline ────────────────────────────────────────────────────────────
+
+class AgentConfig(Base):
+    """Per-team agent pipeline configuration."""
+    __tablename__ = "agent_configs"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
+    team_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("teams.id", ondelete="CASCADE"), unique=True, index=True)
+
+    # Jira request board to poll for new requests
+    request_board_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    request_jql: Mapped[str | None] = mapped_column(Text, nullable=True)  # Custom JQL filter
+    target_project_key: Mapped[str | None] = mapped_column(String(50), nullable=True)  # Where to create PBIs
+
+    # GitHub integration for architecture analysis
+    github_repo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    github_token: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Agent toggles
+    enable_solution_architect: Mapped[bool] = mapped_column(Boolean, default=True)
+    enable_pbi_generator: Mapped[bool] = mapped_column(Boolean, default=True)
+    enable_dependency_agent: Mapped[bool] = mapped_column(Boolean, default=True)
+    enable_backlog_dispatcher: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Behaviour
+    auto_create_jira_issues: Mapped[bool] = mapped_column(Boolean, default=False)  # False = preview only
+    poll_interval_minutes: Mapped[int] = mapped_column(Integer, default=30)
+    last_polled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_processed_issue_key: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    team: Mapped["Team"] = relationship("Team", back_populates="agent_config")
+
+
+class AgentPipeline(Base):
+    """One pipeline run triggered by a Jira request issue."""
+    __tablename__ = "agent_pipelines"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
+    team_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("teams.id", ondelete="CASCADE"), index=True)
+
+    trigger_issue_key: Mapped[str] = mapped_column(String(50), nullable=False)
+    trigger_issue_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    trigger_issue_data: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    team: Mapped["Team"] = relationship("Team", back_populates="agent_pipelines")
+    steps: Mapped[list["AgentStepResult"]] = relationship(
+        "AgentStepResult", back_populates="pipeline",
+        order_by="AgentStepResult.step_order"
+    )
+
+    __table_args__ = (
+        Index("ix_agent_pipelines_team_created", "team_id", "created_at"),
+    )
+
+
+class AgentStepResult(Base):
+    """Result of a single agent step within a pipeline run."""
+    __tablename__ = "agent_step_results"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=new_uuid)
+    pipeline_id: Mapped[str] = mapped_column(UUID(as_uuid=False), ForeignKey("agent_pipelines.id", ondelete="CASCADE"), index=True)
+
+    step_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    agent_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    agent_label: Mapped[str] = mapped_column(String(200), nullable=False)
+
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    output: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    pipeline: Mapped["AgentPipeline"] = relationship("AgentPipeline", back_populates="steps")
+
+    __table_args__ = (
+        Index("ix_agent_step_results_pipeline", "pipeline_id", "step_order"),
+    )

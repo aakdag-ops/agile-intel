@@ -185,3 +185,49 @@ class JiraClient:
     async def get_myself(self) -> dict:
         """Verify auth and get current user info."""
         return await self._get("/rest/api/3/myself")
+
+    async def get_issues_for_board(self, board_id: int, jql_filter: str | None = None) -> list[dict]:
+        """Get issues from a specific board with optional JQL filter."""
+        jql = jql_filter or f"status != Done ORDER BY created DESC"
+        params = {"jql": jql, "maxResults": 50, "fields": "summary,description,status,issuetype,priority,assignee,created"}
+        data = await self._get(f"/rest/agile/1.0/board/{board_id}/issue", params=params)
+        return data.get("issues", [])
+
+    async def create_issue(
+        self,
+        project_key: str,
+        issue_type: str,
+        summary: str,
+        description: str = "",
+        story_points: int | None = None,
+        epic_key: str | None = None,
+    ) -> dict:
+        """Create a new Jira issue."""
+        fields: dict = {
+            "project": {"key": project_key},
+            "issuetype": {"name": issue_type},
+            "summary": summary,
+            "description": {
+                "type": "doc",
+                "version": 1,
+                "content": [{"type": "paragraph", "content": [{"type": "text", "text": description}]}]
+            } if description else None,
+        }
+        if story_points is not None:
+            fields["story_points"] = story_points
+            fields["customfield_10016"] = story_points  # standard SP field
+        if epic_key and issue_type != "Epic":
+            fields["customfield_10014"] = epic_key  # epic link
+
+        # Remove None values
+        fields = {k: v for k, v in fields.items() if v is not None}
+
+        return await self._post("/rest/api/3/issue", {"fields": fields})
+
+    async def create_issue_link(self, inward_key: str, outward_key: str, link_type: str = "Blocks") -> None:
+        """Create a link between two issues."""
+        await self._post("/rest/api/3/issueLink", {
+            "type": {"name": link_type},
+            "inwardIssue": {"key": inward_key},
+            "outwardIssue": {"key": outward_key},
+        })
